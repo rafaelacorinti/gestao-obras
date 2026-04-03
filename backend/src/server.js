@@ -31,7 +31,7 @@ const globalLimiter = rateLimit({
 // Rate limiting específico para login (mais restritivo)
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: 50,
   message: { error: 'Muitas tentativas de login. Tente novamente em 15 minutos.' }
 });
 
