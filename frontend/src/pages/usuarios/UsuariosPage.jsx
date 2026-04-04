@@ -21,8 +21,8 @@ export default function UsuariosPage() {
   const [form, setForm] = useState(INITIAL)
   const [confirm, setConfirm] = useState(null)
   // Modal de aprovação
-  const [aprovando, setAprovando] = useState(null) // usuário sendo aprovado
-  const [obrasAprovacao, setObrasAprovacao] = useState([])
+  const [aprovando, setAprovando] = useState(null)
+  const [obrasAprovacao, setObrasAprovacao] = useState({})
   const qc = useQueryClient()
 
   const { data: usuarios = [], isLoading } = useQuery({
@@ -46,7 +46,7 @@ export default function UsuariosPage() {
 
   const aprovaMutation = useMutation({
     mutationFn: ({ id, obras_ids }) => api.put(`/users/${id}`, { ativo: true, obras_ids }),
-    onSuccess: () => { qc.invalidateQueries(['usuarios']); toast.success('Usuário aprovado!'); setAprovando(null); setObrasAprovacao([]) },
+    onSuccess: () => { qc.invalidateQueries(['usuarios']); toast.success('Usuário aprovado!'); setAprovando(null) },
     onError: () => toast.error('Erro ao aprovar')
   })
 
@@ -159,24 +159,66 @@ export default function UsuariosPage() {
               <p className="text-gray-400 font-medium">Nenhuma solicitação pendente</p>
             </div>
           ) : pendentes.map(u => (
-            <div key={u.id} className="card flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center font-bold text-lg flex-shrink-0">{u.nome?.charAt(0)}</div>
-              <div className="flex-1">
-                <p className="font-semibold text-gray-900">{u.nome}</p>
-                <p className="text-sm text-gray-500">{u.email}</p>
-                <span className={`badge mt-1 ${PERFIL_BADGE[u.perfil]}`}>{u.perfil}</span>
+            <div key={u.id} className="card space-y-3">
+              {/* Info do usuário */}
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center font-bold text-lg flex-shrink-0">{u.nome?.charAt(0)}</div>
+                <div className="flex-1">
+                  <p className="font-semibold text-gray-900">{u.nome}</p>
+                  <p className="text-sm text-gray-500">{u.email}</p>
+                  <span className={`badge mt-1 ${PERFIL_BADGE[u.perfil]}`}>{u.perfil}</span>
+                </div>
               </div>
-              <div className="flex gap-2 flex-shrink-0">
+
+              {/* Seleção de obras inline */}
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Selecionar obras para liberar acesso:</p>
+                {todasObras.length === 0 ? (
+                  <p className="text-sm text-gray-400 italic">Nenhuma obra cadastrada</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {todasObras.map(obra => {
+                      const selecionadas = obrasAprovacao[u.id] || []
+                      const marcada = selecionadas.includes(obra.id)
+                      return (
+                        <button
+                          key={obra.id}
+                          type="button"
+                          onClick={() => setObrasAprovacao(prev => {
+                            const atual = prev[u.id] || []
+                            return {
+                              ...prev,
+                              [u.id]: marcada ? atual.filter(x => x !== obra.id) : [...atual, obra.id]
+                            }
+                          })}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors ${marcada ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'}`}
+                        >
+                          <Building2 size={13} />
+                          {obra.nome}
+                          {marcada && <CheckCircle size={13} />}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+                {(obrasAprovacao[u.id] || []).length === 0 && (
+                  <p className="text-xs text-amber-600 mt-1">⚠️ Sem obras selecionadas, o usuário não verá nenhum dado</p>
+                )}
+              </div>
+
+              {/* Botões */}
+              <div className="flex gap-2 pt-1 border-t border-gray-100">
                 <button
-                  onClick={() => { setAprovando(u); setObrasAprovacao([]) }}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors font-medium">
-                  <CheckCircle size={16} /> Aprovar
+                  onClick={() => aprovaMutation.mutate({ id: u.id, obras_ids: obrasAprovacao[u.id] || [] })}
+                  disabled={aprovaMutation.isPending}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors font-medium">
+                  <CheckCircle size={15} /> Aprovar
                 </button>
                 <button
                   onClick={() => recusaMutation.mutate(u.id)}
                   disabled={recusaMutation.isPending}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-red-100 text-red-600 text-sm rounded-lg hover:bg-red-200 transition-colors font-medium">
-                  <XCircle size={16} /> Recusar
+                  className="flex items-center gap-1.5 px-4 py-2 bg-red-100 text-red-600 text-sm rounded-lg hover:bg-red-200 transition-colors font-medium">
+                  <XCircle size={15} /> Recusar
                 </button>
               </div>
             </div>
