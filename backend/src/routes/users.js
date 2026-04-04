@@ -38,12 +38,17 @@ router.post('/', authorize('administrador'), async (req, res) => {
 // PUT /api/users/:id
 router.put('/:id', authorize('administrador'), async (req, res) => {
   try {
-    const { nome, email, perfil, ativo } = req.body;
+    const atual = await db.query('SELECT * FROM usuarios WHERE id=$1', [req.params.id]);
+    if (!atual.rows[0]) return res.status(404).json({ error: 'Usuário não encontrado' });
+    const u = atual.rows[0];
+    const nome = req.body.nome ?? u.nome;
+    const email = req.body.email ?? u.email;
+    const perfil = req.body.perfil ?? u.perfil;
+    const ativo = req.body.ativo ?? u.ativo;
     const result = await db.query(
       'UPDATE usuarios SET nome=$1, email=$2, perfil=$3, ativo=$4 WHERE id=$5 RETURNING id, nome, email, perfil, ativo',
       [nome, email, perfil, ativo, req.params.id]
     );
-    if (!result.rows[0]) return res.status(404).json({ error: 'Usuário não encontrado' });
     res.json(result.rows[0]);
   } catch (error) {
     res.status(500).json({ error: 'Erro ao atualizar usuário' });
@@ -63,14 +68,21 @@ router.put('/:id/senha', authorize('administrador'), async (req, res) => {
   }
 });
 
-// DELETE /api/users/:id (desativa)
+// DELETE /api/users/:id
 router.delete('/:id', authorize('administrador'), async (req, res) => {
   try {
-    if (req.params.id === req.user.id) return res.status(400).json({ error: 'Não é possível desativar seu próprio usuário' });
-    await db.query('UPDATE usuarios SET ativo=false WHERE id=$1', [req.params.id]);
-    res.json({ message: 'Usuário desativado' });
+    if (req.params.id === String(req.user.id)) return res.status(400).json({ error: 'Não é possível remover seu próprio usuário' });
+    const atual = await db.query('SELECT ativo FROM usuarios WHERE id=$1', [req.params.id]);
+    if (!atual.rows[0]) return res.status(404).json({ error: 'Usuário não encontrado' });
+    // Se for pendente (nunca foi ativo), deleta; senão desativa
+    if (!atual.rows[0].ativo) {
+      await db.query('DELETE FROM usuarios WHERE id=$1', [req.params.id]);
+    } else {
+      await db.query('UPDATE usuarios SET ativo=false WHERE id=$1', [req.params.id]);
+    }
+    res.json({ message: 'Operação realizada com sucesso' });
   } catch (error) {
-    res.status(500).json({ error: 'Erro ao desativar usuário' });
+    res.status(500).json({ error: 'Erro ao remover usuário' });
   }
 });
 
