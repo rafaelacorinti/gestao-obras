@@ -20,7 +20,6 @@ export default function UsuariosPage() {
   const [editItem, setEditItem] = useState(null)
   const [form, setForm] = useState(INITIAL)
   const [confirm, setConfirm] = useState(null)
-  // Modal de aprovação
   const [obrasAprovacao, setObrasAprovacao] = useState({})
   const qc = useQueryClient()
 
@@ -70,12 +69,12 @@ export default function UsuariosPage() {
   }
   const closeModal = () => { setShowModal(false); setEditItem(null); setForm(INITIAL) }
 
-  const toggleObra = (id, arr, setArr) => {
-    setArr(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
-  }
-
-  const confirmarAprovacao = () => {
-    aprovaMutation.mutate({ id: aprovando.id, obras_ids: obrasAprovacao })
+  const toggleObraAprovacao = (userId, obraId) => {
+    setObrasAprovacao(prev => {
+      const atual = prev[userId] || []
+      const ja = atual.includes(obraId)
+      return { ...prev, [userId]: ja ? atual.filter(x => x !== obraId) : [...atual, obraId] }
+    })
   }
 
   return (
@@ -159,7 +158,6 @@ export default function UsuariosPage() {
             </div>
           ) : pendentes.map(u => (
             <div key={u.id} className="card space-y-3">
-              {/* Info do usuário */}
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center font-bold text-lg flex-shrink-0">{u.nome?.charAt(0)}</div>
                 <div className="flex-1">
@@ -169,7 +167,6 @@ export default function UsuariosPage() {
                 </div>
               </div>
 
-              {/* Seleção de obras inline */}
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Selecionar obras para liberar acesso:</p>
                 {todasObras.length === 0 ? (
@@ -177,19 +174,12 @@ export default function UsuariosPage() {
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {todasObras.map(obra => {
-                      const selecionadas = obrasAprovacao[u.id] || []
-                      const marcada = selecionadas.includes(obra.id)
+                      const marcada = (obrasAprovacao[u.id] || []).includes(obra.id)
                       return (
                         <button
                           key={obra.id}
                           type="button"
-                          onClick={() => setObrasAprovacao(prev => {
-                            const atual = prev[u.id] || []
-                            return {
-                              ...prev,
-                              [u.id]: marcada ? atual.filter(x => x !== obra.id) : [...atual, obra.id]
-                            }
-                          })}
+                          onClick={() => toggleObraAprovacao(u.id, obra.id)}
                           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors ${marcada ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'}`}
                         >
                           <Building2 size={13} />
@@ -201,11 +191,10 @@ export default function UsuariosPage() {
                   </div>
                 )}
                 {(obrasAprovacao[u.id] || []).length === 0 && (
-                  <p className="text-xs text-amber-600 mt-1">⚠️ Sem obras selecionadas, o usuário não verá nenhum dado</p>
+                  <p className="text-xs text-amber-600 mt-1">Sem obras selecionadas, o usuário não verá nenhum dado</p>
                 )}
               </div>
 
-              {/* Botões */}
               <div className="flex gap-2 pt-1 border-t border-gray-100">
                 <button
                   onClick={() => aprovaMutation.mutate({ id: u.id, obras_ids: obrasAprovacao[u.id] || [] })}
