@@ -1,7 +1,8 @@
+import { useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 export function usePagination(data = [], pageSize = 20) {
-  const [page, setPage] = require('react').useState(1)
+  const [page, setPage] = useState(1)
   const total = data.length
   const totalPages = Math.ceil(total / pageSize)
   const paged = data.slice((page - 1) * pageSize, page * pageSize)
