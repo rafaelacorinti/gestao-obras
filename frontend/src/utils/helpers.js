@@ -1,6 +1,20 @@
 export const formatCurrency = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
-export const formatDate = (d) => d ? new Intl.DateTimeFormat('pt-BR').format(new Date(d + 'T00:00:00')) : '-'
-export const formatDateInput = (d) => d ? new Date(d).toISOString().split('T')[0] : ''
+export const formatDate = (d) => {
+  if (!d) return '-'
+  try {
+    const date = new Date(String(d).includes('T') ? d : d + 'T00:00:00')
+    if (isNaN(date.getTime())) return '-'
+    return new Intl.DateTimeFormat('pt-BR').format(date)
+  } catch { return '-' }
+}
+export const formatDateInput = (d) => {
+  if (!d) return ''
+  try {
+    const date = new Date(d)
+    if (isNaN(date.getTime())) return ''
+    return date.toISOString().split('T')[0]
+  } catch { return '' }
+}
 
 export const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
 
