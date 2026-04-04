@@ -19,6 +19,8 @@ const authMiddleware = async (req, res, next) => {
     req.user = result.rows[0];
 
     // Administrador tem acesso total (obras_ids = null)
+    // Usuário sem obras atribuídas também vê tudo (obras_ids = null)
+    // Usuário com obras atribuídas só vê as obras dele
     if (req.user.perfil === 'administrador') {
       req.user.obras_ids = null;
     } else {
@@ -26,7 +28,8 @@ const authMiddleware = async (req, res, next) => {
         'SELECT obra_id FROM usuario_obras WHERE usuario_id = $1',
         [req.user.id]
       );
-      req.user.obras_ids = obras.rows.map(r => r.obra_id);
+      const ids = obras.rows.map(r => r.obra_id);
+      req.user.obras_ids = ids.length > 0 ? ids : null;
     }
 
     next();
