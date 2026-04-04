@@ -66,5 +66,17 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Servidor rodando na porta ${PORT}`);
+
+  // Keep-alive: evita que o Render durma (ping a cada 14 minutos)
+  if (process.env.NODE_ENV === 'production' && process.env.RENDER_EXTERNAL_URL) {
+    const https = require('https');
+    setInterval(() => {
+      https.get(`${process.env.RENDER_EXTERNAL_URL}/health`, (r) => {
+        console.log(`Keep-alive ping: ${r.statusCode}`);
+      }).on('error', () => {});
+    }, 14 * 60 * 1000);
+  }
+});
 module.exports = app;
