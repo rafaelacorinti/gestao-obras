@@ -21,16 +21,20 @@ export default function RelatoriosPage() {
   const download = async (formato) => {
     setLoading(formato)
     try {
+      const apiBase = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : '/api'
       const params = new URLSearchParams({ mes, ano, formato, ...(obraId && { obra_id: obraId }) })
-      const resp = await fetch(`/api/relatorios/mensal?${params}`, {
+      const resp = await fetch(`${apiBase}/relatorios/mensal?${params}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       })
+      if (!resp.ok) throw new Error('Erro ao gerar arquivo')
       const blob = await resp.blob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
       a.download = `relatorio-${ano}-${String(mes).padStart(2,'0')}.${formato === 'excel' ? 'xlsx' : 'pdf'}`
+      document.body.appendChild(a)
       a.click()
+      document.body.removeChild(a)
       URL.revokeObjectURL(url)
     } catch {
       toast.error('Erro ao baixar relatório')

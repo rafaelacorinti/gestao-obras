@@ -1,11 +1,20 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const nodemailer = require('nodemailer');
 const { body, validationResult } = require('express-validator');
 const db = require('../models/db');
 const { authMiddleware } = require('../middleware/auth');
 
 const router = express.Router();
+
+function getMailer() {
+  return nodemailer.createTransport({
+    service: 'gmail',
+    auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+  });
+}
 
 // POST /api/auth/login
 router.post('/login', [
@@ -83,6 +92,50 @@ router.put('/senha', authMiddleware, [
     res.json({ message: 'Senha alterada com sucesso' });
   } catch (error) {
     res.status(500).json({ error: 'Erro ao alterar senha' });
+  }
+});
+
+// POST /api/auth/esqueci-senha
+router.post('/esqueci-senha', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email obrigatório' });
+    const result = await db.query('SELECT id, nome FROM usuarios WHERE email=$1 AND ativo=true', [email]);
+    if (!result.rows[0]) return res.json({ message: 'Se o email existir, você receberá as instruções.' });
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expira = new Date(Date.now() + 3600000); // 1 hora
+    await db.query('UPDATE usuarios SET reset_token=$1, reset_token_expira=$2 WHERE id=$3', [token, expira, result.rows[0].id]);
+
+    const link = `${process.env.FRONTEND_URL || 'https://gestao-obras-6nvu.vercel.app'}/redefinir-senha?token=${token}`;
+
+    if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+      await getMailer().sendMail({
+        from: `GestaoObras <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: 'Redefinição de senha — GestaoObras',
+        html: `<p>Olá, ${result.rows[0].nome}!</p><p>Clique no link abaixo para redefinir sua senha (válido por 1 hora):</p><p><a href="${link}">${link}</a></p><p>Se não solicitou, ignore este email.</p>`
+      });
+    }
+    res.json({ message: 'Se o email existir, você receberá as instruções.', ...(process.env.NODE_ENV !== 'production' && { link }) });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erro ao processar solicitação' });
+  }
+});
+
+// POST /api/auth/redefinir-senha
+router.post('/redefinir-senha', async (req, res) => {
+  try {
+    const { token, nova_senha } = req.body;
+    if (!token || !nova_senha || nova_senha.length < 6) return res.status(400).json({ error: 'Dados inválidos' });
+    const result = await db.query('SELECT id FROM usuarios WHERE reset_token=$1 AND reset_token_expira > NOW()', [token]);
+    if (!result.rows[0]) return res.status(400).json({ error: 'Link inválido ou expirado. Solicite um novo.' });
+    const hash = await bcrypt.hash(nova_senha, 10);
+    await db.query('UPDATE usuarios SET senha=$1, reset_token=NULL, reset_token_expira=NULL WHERE id=$2', [hash, result.rows[0].id]);
+    res.json({ message: 'Senha redefinida com sucesso!' });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao redefinir senha' });
   }
 });
 
