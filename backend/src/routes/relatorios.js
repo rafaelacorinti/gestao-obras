@@ -115,48 +115,123 @@ router.get('/obra/:id', async (req, res) => {
 });
 
 async function exportarExcel(res, relatorio) {
-  const wb = new ExcelJS.Workbook();
-  const ws = wb.addWorksheet('Relatório Mensal');
-  ws.addRow(['GESTÃO DE OBRAS - RELATÓRIO MENSAL']);
-  ws.addRow([`Período: ${String(relatorio.periodo.mes).padStart(2,'0')}/${relatorio.periodo.ano}`]);
-  ws.addRow([`Obra: ${relatorio.obra}`]);
-  ws.addRow([]);
-  ws.addRow(['RESUMO', 'VALOR']);
-  ws.addRow(['Mobilização', relatorio.mobilizacao.total]);
-  ws.addRow(['Passagens', relatorio.passagens.total]);
-  relatorio.custos.forEach(c => ws.addRow([c.label, c.total]));
-  relatorio.alojamento.forEach(a => ws.addRow([a.label, a.total]));
-  ws.addRow([]);
-  ws.addRow(['TOTAL GERAL', relatorio.total_geral]);
-  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  res.setHeader('Content-Disposition', `attachment; filename="relatorio-${relatorio.periodo.ano}-${relatorio.periodo.mes}.xlsx"`);
-  await wb.xlsx.write(res);
+  try {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Relatório Mensal');
+
+    // Estilos
+    ws.getColumn(1).width = 35;
+    ws.getColumn(2).width = 20;
+
+    const addTitle = (text) => {
+      const row = ws.addRow([text]);
+      row.font = { bold: true, size: 14 };
+      row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1D4ED8' } };
+      row.font = { bold: true, size: 13, color: { argb: 'FFFFFFFF' } };
+    };
+
+    const addItem = (label, value) => {
+      const row = ws.addRow([label, parseFloat(value) || 0]);
+      row.getCell(2).numFmt = 'R$ #,##0.00';
+    };
+
+    const addTotal = (label, value) => {
+      const row = ws.addRow([label, parseFloat(value) || 0]);
+      row.font = { bold: true, size: 12 };
+      row.getCell(2).numFmt = 'R$ #,##0.00';
+      row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDBEAFE' } };
+    };
+
+    addTitle('GESTÃO DE OBRAS — RELATÓRIO MENSAL');
+    ws.addRow([`Período: ${String(relatorio.periodo.mes).padStart(2,'0')}/${relatorio.periodo.ano}`]);
+    ws.addRow([`Obra: ${relatorio.obra}`]);
+    ws.addRow([`Colaboradores: ${relatorio.mobilizacao.colaboradores}`]);
+    ws.addRow([]);
+    ws.addRow(['ITEM', 'VALOR']).font = { bold: true };
+    addItem('Mobilização', relatorio.mobilizacao.total);
+    addItem('Passagens', relatorio.passagens.total);
+    relatorio.custos.forEach(c => addItem(c.label, c.total));
+    relatorio.alojamento.forEach(a => addItem(a.label, a.total));
+    ws.addRow([]);
+    addTotal('TOTAL GERAL', relatorio.total_geral);
+
+    const buffer = await wb.xlsx.writeBuffer();
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="relatorio-${relatorio.periodo.ano}-${String(relatorio.periodo.mes).padStart(2,'0')}.xlsx"`);
+    res.setHeader('Content-Length', buffer.length);
+    res.end(buffer);
+  } catch (err) {
+    console.error('Erro Excel:', err);
+    res.status(500).json({ error: 'Erro ao gerar Excel' });
+  }
 }
 
 async function exportarPDF(res, relatorio) {
-  const doc = new PDFDocument({ margin: 50 });
-  res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', `attachment; filename="relatorio.pdf"`);
-  doc.pipe(res);
-  const fmt = (v) => `R$ ${parseFloat(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
-  doc.fontSize(18).font('Helvetica-Bold').text('GESTÃO DE OBRAS', { align: 'center' });
-  doc.fontSize(14).font('Helvetica').text(`Relatório Mensal - ${String(relatorio.periodo.mes).padStart(2,'0')}/${relatorio.periodo.ano}`, { align: 'center' });
-  doc.moveDown();
-  doc.fontSize(11).text(`Obra: ${relatorio.obra}`);
-  doc.text(`Colaboradores no período: ${relatorio.mobilizacao.colaboradores}`);
-  doc.moveDown();
-  doc.fontSize(13).font('Helvetica-Bold').text('CUSTOS');
-  doc.font('Helvetica').fontSize(11);
-  doc.text(`Mobilização: ${fmt(relatorio.mobilizacao.total)}`);
-  doc.text(`Passagens: ${fmt(relatorio.passagens.total)}`);
-  relatorio.custos.forEach(c => doc.text(`${c.label}: ${fmt(c.total)}`));
-  doc.moveDown();
-  doc.fontSize(13).font('Helvetica-Bold').text('ALOJAMENTO');
-  doc.font('Helvetica').fontSize(11);
-  relatorio.alojamento.forEach(a => doc.text(`${a.label}: ${fmt(a.total)}`));
-  doc.moveDown();
-  doc.fontSize(14).font('Helvetica-Bold').fillColor('blue').text(`TOTAL GERAL: ${fmt(relatorio.total_geral)}`);
-  doc.end();
+  try {
+    const chunks = [];
+    const doc = new PDFDocument({ margin: 50, size: 'A4' });
+
+    doc.on('data', chunk => chunks.push(chunk));
+    doc.on('end', () => {
+      const buffer = Buffer.concat(chunks);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="relatorio-${relatorio.periodo.ano}-${String(relatorio.periodo.mes).padStart(2,'0')}.pdf"`);
+      res.setHeader('Content-Length', buffer.length);
+      res.end(buffer);
+    });
+
+    const fmt = (v) => `R$ ${parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+    const mes = String(relatorio.periodo.mes).padStart(2, '0');
+
+    // Cabeçalho
+    doc.rect(0, 0, 595, 80).fill('#1d4ed8');
+    doc.fillColor('white').fontSize(22).font('Helvetica-Bold').text('GESTÃO DE OBRAS', 50, 20);
+    doc.fontSize(12).font('Helvetica').text(`Relatório Mensal — ${mes}/${relatorio.periodo.ano}`, 50, 50);
+    doc.fillColor('black').moveDown(3);
+
+    // Informações
+    doc.fontSize(11).font('Helvetica')
+      .text(`Obra: ${relatorio.obra}`, { continued: false })
+      .text(`Colaboradores no período: ${relatorio.mobilizacao.colaboradores}`)
+      .moveDown();
+
+    // Tabela de custos
+    const addSection = (title, items) => {
+      doc.fontSize(13).font('Helvetica-Bold').fillColor('#1d4ed8').text(title);
+      doc.fillColor('black').font('Helvetica').fontSize(11);
+      items.forEach(({ label, value }) => {
+        const y = doc.y;
+        doc.text(label, 50, y);
+        doc.text(fmt(value), 400, y, { width: 120, align: 'right' });
+      });
+      doc.moveDown(0.5);
+    };
+
+    addSection('Mobilização e Passagens', [
+      { label: 'Mobilização', value: relatorio.mobilizacao.total },
+      { label: 'Passagens', value: relatorio.passagens.total },
+    ]);
+
+    if (relatorio.custos.length > 0) {
+      addSection('Outros Custos', relatorio.custos.map(c => ({ label: c.label, value: c.total })));
+    }
+
+    if (relatorio.alojamento.length > 0) {
+      addSection('Alojamento', relatorio.alojamento.map(a => ({ label: a.label, value: a.total })));
+    }
+
+    // Total geral
+    doc.moveDown();
+    doc.rect(50, doc.y, 495, 35).fill('#dbeafe');
+    doc.fillColor('#1d4ed8').fontSize(14).font('Helvetica-Bold')
+      .text('TOTAL GERAL', 60, doc.y - 28)
+    doc.text(fmt(relatorio.total_geral), 400, doc.y - 14, { width: 135, align: 'right' });
+
+    doc.end();
+  } catch (err) {
+    console.error('Erro PDF:', err);
+    if (!res.headersSent) res.status(500).json({ error: 'Erro ao gerar PDF' });
+  }
 }
 
 module.exports = router;
