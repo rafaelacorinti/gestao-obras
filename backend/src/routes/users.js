@@ -12,16 +12,31 @@ router.get('/', authorize('administrador'), async (req, res) => {
     const result = await db.query(
       'SELECT id, nome, email, perfil, ativo, criado_em FROM usuarios ORDER BY ativo DESC, nome'
     );
-    // Buscar obras de cada usuário
-    const obras = await db.query('SELECT usuario_id, obra_id, o.nome as obra_nome FROM usuario_obras uo JOIN obras o ON o.id=uo.obra_id');
+
+    // Buscar obras de cada usuário separadamente
     const obrasPorUsuario = {};
-    obras.rows.forEach(r => {
-      if (!obrasPorUsuario[r.usuario_id]) obrasPorUsuario[r.usuario_id] = [];
-      obrasPorUsuario[r.usuario_id].push({ id: r.obra_id, nome: r.obra_nome });
-    });
-    const usuarios = result.rows.map(u => ({ ...u, obras_permitidas: obrasPorUsuario[u.id] || [] }));
+    for (const u of result.rows) {
+      try {
+        const uo = await db.query(
+          `SELECT uo.obra_id, o.nome as obra_nome 
+           FROM usuario_obras uo 
+           LEFT JOIN obras o ON o.id::text = uo.obra_id::text 
+           WHERE uo.usuario_id::text = $1`,
+          [String(u.id)]
+        );
+        obrasPorUsuario[u.id] = uo.rows.map(r => ({ id: r.obra_id, nome: r.obra_nome }));
+      } catch {
+        obrasPorUsuario[u.id] = [];
+      }
+    }
+
+    const usuarios = result.rows.map(u => ({
+      ...u,
+      obras_permitidas: obrasPorUsuario[u.id] || []
+    }));
     res.json(usuarios);
   } catch (error) {
+    console.error('Erro GET /users:', error.message);
     res.status(500).json({ error: 'Erro ao buscar usuários' });
   }
 });
