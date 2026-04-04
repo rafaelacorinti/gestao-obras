@@ -10,9 +10,17 @@ router.use(authMiddleware);
 router.get('/', authorize('administrador'), async (req, res) => {
   try {
     const result = await db.query(
-      'SELECT id, nome, email, perfil, ativo, criado_em FROM usuarios ORDER BY nome'
+      'SELECT id, nome, email, perfil, ativo, criado_em FROM usuarios ORDER BY ativo DESC, nome'
     );
-    res.json(result.rows);
+    // Buscar obras de cada usuário
+    const obras = await db.query('SELECT usuario_id, obra_id, o.nome as obra_nome FROM usuario_obras uo JOIN obras o ON o.id=uo.obra_id');
+    const obrasPorUsuario = {};
+    obras.rows.forEach(r => {
+      if (!obrasPorUsuario[r.usuario_id]) obrasPorUsuario[r.usuario_id] = [];
+      obrasPorUsuario[r.usuario_id].push({ id: r.obra_id, nome: r.obra_nome });
+    });
+    const usuarios = result.rows.map(u => ({ ...u, obras_permitidas: obrasPorUsuario[u.id] || [] }));
+    res.json(usuarios);
   } catch (error) {
     res.status(500).json({ error: 'Erro ao buscar usuários' });
   }
@@ -21,13 +29,19 @@ router.get('/', authorize('administrador'), async (req, res) => {
 // POST /api/users
 router.post('/', authorize('administrador'), async (req, res) => {
   try {
-    const { nome, email, senha, perfil } = req.body;
+    const { nome, email, senha, perfil, obras_ids } = req.body;
     if (!nome || !email || !senha || !perfil) return res.status(400).json({ error: 'Campos obrigatórios faltando' });
     const hash = await bcrypt.hash(senha, 10);
     const result = await db.query(
       'INSERT INTO usuarios (nome, email, senha, perfil) VALUES ($1,$2,$3,$4) RETURNING id, nome, email, perfil, ativo',
       [nome, email, hash, perfil]
     );
+    const userId = result.rows[0].id;
+    if (obras_ids && obras_ids.length > 0) {
+      for (const oId of obras_ids) {
+        await db.query('INSERT INTO usuario_obras (usuario_id, obra_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [userId, oId]);
+      }
+    }
     res.status(201).json(result.rows[0]);
   } catch (error) {
     if (error.code === '23505') return res.status(400).json({ error: 'Email já cadastrado' });
@@ -45,17 +59,27 @@ router.put('/:id', authorize('administrador'), async (req, res) => {
     const email = req.body.email ?? u.email;
     const perfil = req.body.perfil ?? u.perfil;
     const ativo = req.body.ativo ?? u.ativo;
+
     const result = await db.query(
       'UPDATE usuarios SET nome=$1, email=$2, perfil=$3, ativo=$4 WHERE id=$5 RETURNING id, nome, email, perfil, ativo',
       [nome, email, perfil, ativo, req.params.id]
     );
+
+    // Sincronizar obras permitidas se informadas
+    if (req.body.obras_ids !== undefined) {
+      await db.query('DELETE FROM usuario_obras WHERE usuario_id=$1', [req.params.id]);
+      for (const oId of (req.body.obras_ids || [])) {
+        await db.query('INSERT INTO usuario_obras (usuario_id, obra_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [req.params.id, oId]);
+      }
+    }
+
     res.json(result.rows[0]);
   } catch (error) {
     res.status(500).json({ error: 'Erro ao atualizar usuário' });
   }
 });
 
-// PUT /api/users/:id/senha - admin reseta senha de outro usuario
+// PUT /api/users/:id/senha
 router.put('/:id/senha', authorize('administrador'), async (req, res) => {
   try {
     const { nova_senha } = req.body;
@@ -74,7 +98,6 @@ router.delete('/:id', authorize('administrador'), async (req, res) => {
     if (req.params.id === String(req.user.id)) return res.status(400).json({ error: 'Não é possível remover seu próprio usuário' });
     const atual = await db.query('SELECT ativo FROM usuarios WHERE id=$1', [req.params.id]);
     if (!atual.rows[0]) return res.status(404).json({ error: 'Usuário não encontrado' });
-    // Se for pendente (nunca foi ativo), deleta; senão desativa
     if (!atual.rows[0].ativo) {
       await db.query('DELETE FROM usuarios WHERE id=$1', [req.params.id]);
     } else {

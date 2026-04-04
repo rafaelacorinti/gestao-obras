@@ -15,6 +15,10 @@ router.get('/', async (req, res) => {
     if (tipo) { query += ` AND a.tipo = $${idx++}`; params.push(tipo); }
     if (mes) { query += ` AND a.mes_referencia = $${idx++}`; params.push(mes); }
     if (ano) { query += ` AND a.ano_referencia = $${idx++}`; params.push(ano); }
+    if (req.user.obras_ids !== null) {
+      if (req.user.obras_ids.length === 0) return res.json({ data: [], total: 0 });
+      query += ` AND a.obra_id = ANY($${idx++})`; params.push(req.user.obras_ids);
+    }
     query += ' ORDER BY a.data_lancamento DESC';
     const result = await db.query(query, params);
     const total = result.rows.reduce((acc, r) => acc + parseFloat(r.valor || 0), 0);

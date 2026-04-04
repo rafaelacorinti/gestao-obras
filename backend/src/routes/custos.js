@@ -20,6 +20,10 @@ router.get('/', async (req, res) => {
     if (ano) { query += ` AND c.ano_referencia = $${idx++}`; params.push(ano); }
     if (data_inicio) { query += ` AND c.data_lancamento >= $${idx++}`; params.push(data_inicio); }
     if (data_fim) { query += ` AND c.data_lancamento <= $${idx++}`; params.push(data_fim); }
+    if (req.user.obras_ids !== null) {
+      if (req.user.obras_ids.length === 0) return res.json({ data: [], total: 0, porCategoria: {} });
+      query += ` AND c.obra_id = ANY($${idx++})`; params.push(req.user.obras_ids);
+    }
     query += ' ORDER BY c.data_lancamento DESC';
     const result = await db.query(query, params);
     const total = result.rows.reduce((acc, r) => acc + parseFloat(r.valor || 0), 0);

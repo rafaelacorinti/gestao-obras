@@ -1,6 +1,6 @@
 const express = require('express');
 const db = require('../models/db');
-const { authMiddleware, authorize } = require('../middleware/auth');
+const { authMiddleware, authorize, obrasFilter } = require('../middleware/auth');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -13,6 +13,11 @@ router.get('/', async (req, res) => {
     let idx = 1;
     if (status) { query += ` AND o.status = $${idx++}`; params.push(status); }
     if (search) { query += ` AND (o.nome ILIKE $${idx} OR o.codigo ILIKE $${idx})`; params.push(`%${search}%`); idx++; }
+    // Filtro por obras permitidas
+    if (req.user.obras_ids !== null) {
+      if (req.user.obras_ids.length === 0) return res.json([]);
+      query += ` AND o.id = ANY($${idx++})`; params.push(req.user.obras_ids);
+    }
     query += ' ORDER BY o.criado_em DESC';
     const result = await db.query(query, params);
     res.json(result.rows);

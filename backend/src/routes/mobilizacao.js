@@ -1,6 +1,6 @@
 const express = require('express');
 const db = require('../models/db');
-const { authMiddleware } = require('../middleware/auth');
+const { authMiddleware, obrasFilter } = require('../middleware/auth');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -19,6 +19,10 @@ router.get('/', async (req, res) => {
     if (status) { query += ` AND m.status = $${idx++}`; params.push(status); }
     if (mes) { query += ` AND EXTRACT(MONTH FROM m.data_mobilizacao) = $${idx++}`; params.push(mes); }
     if (ano) { query += ` AND EXTRACT(YEAR FROM m.data_mobilizacao) = $${idx++}`; params.push(ano); }
+    if (req.user.obras_ids !== null) {
+      if (req.user.obras_ids.length === 0) return res.json({ data: [], total: 0 });
+      query += ` AND m.obra_id = ANY($${idx++})`; params.push(req.user.obras_ids);
+    }
     query += ' ORDER BY m.data_mobilizacao DESC';
     const result = await db.query(query, params);
     const total = result.rows.reduce((acc, r) => acc + parseFloat(r.valor_reembolso || 0), 0);

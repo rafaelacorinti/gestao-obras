@@ -19,6 +19,10 @@ router.get('/', async (req, res) => {
     if (status) { query += ` AND p.status = $${idx++}`; params.push(status); }
     if (data_inicio) { query += ` AND p.data_viagem >= $${idx++}`; params.push(data_inicio); }
     if (data_fim) { query += ` AND p.data_viagem <= $${idx++}`; params.push(data_fim); }
+    if (req.user.obras_ids !== null) {
+      if (req.user.obras_ids.length === 0) return res.json({ data: [], total: 0, count: 0 });
+      query += ` AND p.obra_id = ANY($${idx++})`; params.push(req.user.obras_ids);
+    }
     query += ' ORDER BY p.data_viagem DESC';
     const result = await db.query(query, params);
     const total = result.rows.reduce((acc, r) => acc + parseFloat(r.valor || 0), 0);
