@@ -21,7 +21,6 @@ export default function UsuariosPage() {
   const [form, setForm] = useState(INITIAL)
   const [confirm, setConfirm] = useState(null)
   // Modal de aprovação
-  const [aprovando, setAprovando] = useState(null)
   const [obrasAprovacao, setObrasAprovacao] = useState({})
   const qc = useQueryClient()
 
@@ -46,7 +45,7 @@ export default function UsuariosPage() {
 
   const aprovaMutation = useMutation({
     mutationFn: ({ id, obras_ids }) => api.put(`/users/${id}`, { ativo: true, obras_ids }),
-    onSuccess: () => { qc.invalidateQueries(['usuarios']); toast.success('Usuário aprovado!'); setAprovando(null) },
+    onSuccess: () => { qc.invalidateQueries(['usuarios']); toast.success('Usuário aprovado!') },
     onError: () => toast.error('Erro ao aprovar')
   })
 
@@ -225,63 +224,6 @@ export default function UsuariosPage() {
           ))}
         </div>
       )}
-
-      {/* Modal Aprovação com seleção de obras */}
-      <Modal open={!!aprovando} title="Aprovar usuário — selecionar obras" onClose={() => setAprovando(null)} size="md">
-        {aprovando && (
-          <div className="space-y-4">
-            <div className="bg-gray-50 rounded-xl p-3 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">{aprovando.nome?.charAt(0)}</div>
-              <div>
-                <p className="font-semibold text-gray-900">{aprovando.nome}</p>
-                <p className="text-sm text-gray-500">{aprovando.email} · <span className={`badge ${PERFIL_BADGE[aprovando.perfil]}`}>{aprovando.perfil}</span></p>
-              </div>
-            </div>
-
-            <div>
-              <p className="label mb-2">Selecione as obras que este usuário pode acessar:</p>
-              {todasObras.length === 0 ? (
-                <p className="text-sm text-gray-400 py-4 text-center">Nenhuma obra cadastrada ainda</p>
-              ) : (
-                <div className="border border-gray-200 rounded-xl divide-y max-h-64 overflow-y-auto">
-                  {todasObras.map(obra => (
-                    <label key={obra.id} className="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        className="w-4 h-4 accent-blue-600"
-                        checked={obrasAprovacao.includes(obra.id)}
-                        onChange={() => toggleObra(obra.id, obrasAprovacao, setObrasAprovacao)}
-                      />
-                      <Building2 size={14} className="text-gray-400 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">{obra.nome}</p>
-                        {obra.cliente && <p className="text-xs text-gray-400">{obra.cliente}</p>}
-                      </div>
-                      <span className={`badge text-xs ${obra.status === 'ativa' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{obra.status}</span>
-                    </label>
-                  ))}
-                </div>
-              )}
-              {obrasAprovacao.length > 0 && (
-                <p className="text-sm text-blue-600 mt-2 font-medium">{obrasAprovacao.length} obra(s) selecionada(s)</p>
-              )}
-              {obrasAprovacao.length === 0 && (
-                <p className="text-xs text-amber-600 mt-2">⚠️ Sem obras selecionadas, o usuário não verá nenhum dado</p>
-              )}
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <button onClick={() => setAprovando(null)} className="btn-secondary flex-1">Cancelar</button>
-              <button
-                onClick={confirmarAprovacao}
-                disabled={aprovaMutation.isPending}
-                className="btn-primary flex-1 justify-center bg-green-600 hover:bg-green-700">
-                {aprovaMutation.isPending ? 'Aprovando...' : 'Confirmar Aprovação'}
-              </button>
-            </div>
-          </div>
-        )}
-      </Modal>
 
       {/* Modal editar/criar usuário */}
       <Modal open={showModal} title={`${editItem ? 'Editar' : 'Novo'} Usuário`} onClose={closeModal}>
