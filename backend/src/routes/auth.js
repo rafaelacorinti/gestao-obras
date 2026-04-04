@@ -38,6 +38,29 @@ router.post('/login', [
   }
 });
 
+// POST /api/auth/register - solicitar acesso (fica pendente)
+router.post('/register', [
+  body('nome').notEmpty().withMessage('Nome obrigatório'),
+  body('email').isEmail().withMessage('Email inválido'),
+  body('senha').isLength({ min: 6 }).withMessage('Senha deve ter pelo menos 6 caracteres'),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+  try {
+    const { nome, email, senha, perfil } = req.body;
+    const existe = await db.query('SELECT id FROM usuarios WHERE email = $1', [email]);
+    if (existe.rows.length > 0) return res.status(400).json({ error: 'Email já cadastrado' });
+    const hash = await bcrypt.hash(senha, 10);
+    await db.query(
+      'INSERT INTO usuarios (nome, email, senha, perfil, ativo) VALUES ($1, $2, $3, $4, false)',
+      [nome, email, hash, perfil || 'financeiro']
+    );
+    res.status(201).json({ message: 'Solicitação enviada! Aguarde aprovação do administrador.' });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao registrar usuário' });
+  }
+});
+
 // GET /api/auth/me
 router.get('/me', authMiddleware, (req, res) => res.json({ user: req.user }));
 

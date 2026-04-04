@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { HardHat, Eye, EyeOff } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -56,10 +56,12 @@ export default function LoginPage() {
               {loading ? 'Entrando...' : 'Entrar'}
             </button>
           </form>
-          <div className="mt-6 p-3 bg-blue-50 rounded-lg">
-            <p className="text-xs text-blue-700 font-semibold">Credenciais padrão:</p>
-            <p className="text-xs text-blue-600 mt-0.5">admin@gestao.com / Admin@123</p>
-          </div>
+          <p className="text-center text-sm text-gray-500 mt-6">
+            Não tem acesso?{' '}
+            <Link to="/cadastro" className="text-blue-600 font-semibold hover:underline">
+              Solicitar acesso
+            </Link>
+          </p>
         </div>
       </div>
     </div>
