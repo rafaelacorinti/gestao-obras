@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../../services/api'
 import { formatDate, formatCurrency, STATUS_BADGE } from '../../utils/helpers'
-import { Plus, Edit2, Trash2 } from 'lucide-react'
+import { Plus, Edit2, Trash2, RefreshCw } from 'lucide-react'
 import Modal from '../../components/ui/Modal'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import Pagination, { usePagination } from '../../components/ui/Pagination'
@@ -37,6 +37,22 @@ export default function MobilizacaoPage() {
     onSuccess: () => { qc.invalidateQueries(['mobilizacao']); toast.success('Removido!'); setConfirm(null) }
   })
 
+  const syncMutation = useMutation({
+    mutationFn: (obra_id) => api.post('/sync/mobilizacao', { obra_id }),
+    onSuccess: (r) => {
+      qc.invalidateQueries(['mobilizacao'])
+      qc.invalidateQueries(['colaboradores-list'])
+      toast.success(`Sync concluído! ${r.data.criados} registros importados.`)
+    },
+    onError: (e) => toast.error(e.response?.data?.error || 'Erro ao sincronizar')
+  })
+
+  const { data: syncStatus } = useQuery({
+    queryKey: ['sync-status'],
+    queryFn: () => api.get('/sync/status').then(r => r.data),
+    refetchInterval: 30000
+  })
+
   const openModal = (item = null) => { setEditItem(item); setForm(item ? { ...INITIAL, ...item } : INITIAL); setShowModal(true) }
   const closeModal = () => { setShowModal(false); setEditItem(null); setForm(INITIAL) }
   const F = (key) => ({ value: form[key] || '', onChange: e => setForm(f => ({ ...f, [key]: e.target.value })) })
@@ -47,8 +63,23 @@ export default function MobilizacaoPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Mobilização</h1>
           <p className="text-gray-500 text-sm">{total} registros | Total: <span className="font-semibold text-blue-600">{formatCurrency(result.total)}</span></p>
+          {syncStatus?.ultima_sync && (
+            <p className="text-xs text-gray-400 mt-0.5">
+              Última sync Google Sheets: {new Date(syncStatus.ultima_sync).toLocaleString('pt-BR')} · {syncStatus.registros_sincronizados} registros
+            </p>
+          )}
         </div>
-        <button onClick={() => openModal()} className="btn-primary"><Plus size={16} /> Nova Mobilização</button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => syncMutation.mutate(filters.obra_id || null)}
+            disabled={syncMutation.isPending}
+            className="flex items-center gap-2 px-3 py-2 bg-green-50 text-green-700 border border-green-200 rounded-lg text-sm font-medium hover:bg-green-100 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw size={15} className={syncMutation.isPending ? 'animate-spin' : ''} />
+            {syncMutation.isPending ? 'Sincronizando...' : 'Sync Google Sheets'}
+          </button>
+          <button onClick={() => openModal()} className="btn-primary"><Plus size={16} /> Nova Mobilização</button>
+        </div>
       </div>
 
       <div className="card !p-4 flex flex-wrap gap-3">
