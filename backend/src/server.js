@@ -16,7 +16,8 @@ app.use(cors({
     'https://gestao-obras-6nvu.vercel.app',
     process.env.FRONTEND_URL
   ].filter(Boolean),
-  credentials: true
+  credentials: true,
+  exposedHeaders: ['Content-Disposition', 'Content-Length', 'Content-Type']
 }));
 
 // Rate limiting global

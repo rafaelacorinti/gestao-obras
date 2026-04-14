@@ -27,15 +27,20 @@ export default function RelatoriosPage() {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       })
       if (!resp.ok) throw new Error('Erro ao gerar arquivo')
-      const blob = await resp.blob()
+
+      const mimeType = formato === 'pdf'
+        ? 'application/pdf'
+        : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      const extensao = formato === 'pdf' ? 'pdf' : 'xlsx'
+      const arrayBuffer = await resp.arrayBuffer()
+      const blob = new Blob([arrayBuffer], { type: mimeType })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `relatorio-${ano}-${String(mes).padStart(2,'0')}.${formato === 'excel' ? 'xlsx' : 'pdf'}`
+      a.download = `relatorio-${ano}-${String(mes).padStart(2,'0')}.${extensao}`
       document.body.appendChild(a)
       a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
+      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url) }, 1000)
     } catch {
       toast.error('Erro ao baixar relatório')
     } finally {
