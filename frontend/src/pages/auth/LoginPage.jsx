@@ -43,10 +43,11 @@ export default function LoginPage() {
               <label className="label">Email</label>
               <input type="email" className="input" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} required />
             </div>
-            <div className="flex items-center justify-between">
-              <label className="label mb-0">Senha</label>
-              <Link to="/esqueci-senha" className="text-xs text-blue-600 hover:underline">Esqueci minha senha</Link>
-            </div>
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="label mb-0">Senha</label>
+                <Link to="/esqueci-senha" className="text-xs text-blue-600 hover:underline">Esqueci minha senha</Link>
+              </div>
               <div className="relative">
                 <input type={show ? 'text' : 'password'} className="input pr-10" placeholder="••••••••" value={senha} onChange={e => setSenha(e.target.value)} required />
                 <button type="button" onClick={() => setShow(s => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
