@@ -184,6 +184,7 @@ async function exportarPDF(res, relatorio) {
   try {
     const chunks = [];
     const doc = new PDFDocument({ margin: 50, size: 'A4' });
+    const logoPath = require('path').join(__dirname, '../assets/logo.png');
 
     doc.on('data', chunk => chunks.push(chunk));
     doc.on('end', () => {
@@ -196,50 +197,118 @@ async function exportarPDF(res, relatorio) {
 
     const fmt = (v) => `R$ ${parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
     const mes = String(relatorio.periodo.mes).padStart(2, '0');
+    const pageW = 595;
+    const marginL = 50;
+    const marginR = 50;
+    const colValX = pageW - marginR - 130; // coluna do valor alinhada à direita
 
-    // Cabeçalho
-    doc.rect(0, 0, 595, 80).fill('#1d4ed8');
-    doc.fillColor('white').fontSize(22).font('Helvetica-Bold').text('GESTÃO DE OBRAS', 50, 20);
-    doc.fontSize(12).font('Helvetica').text(`Relatório Mensal — ${mes}/${relatorio.periodo.ano}`, 50, 50);
-    doc.fillColor('black').moveDown(3);
+    // ── Cabeçalho azul ──────────────────────────────────────────────────────
+    doc.rect(0, 0, pageW, 90).fill('#1d4ed8');
 
-    // Informações
-    doc.fontSize(11).font('Helvetica')
-      .text(`Obra: ${relatorio.obra}`, { continued: false })
-      .text(`Colaboradores no período: ${relatorio.mobilizacao.colaboradores}`)
-      .moveDown();
+    // Logo no canto esquerdo do header
+    try {
+      doc.image(logoPath, 50, 10, { height: 70, fit: [120, 70] });
+    } catch (_) { /* logo não encontrada, ignora */ }
 
-    // Tabela de custos
-    const addSection = (title, items) => {
-      doc.fontSize(13).font('Helvetica-Bold').fillColor('#1d4ed8').text(title);
-      doc.fillColor('black').font('Helvetica').fontSize(11);
-      items.forEach(({ label, value }) => {
-        const y = doc.y;
-        doc.text(label, 50, y);
-        doc.text(fmt(value), 400, y, { width: 120, align: 'right' });
-      });
-      doc.moveDown(0.5);
+    // Título no centro/direita
+    doc.fillColor('white')
+      .fontSize(18).font('Helvetica-Bold')
+      .text('GRUPO CMP', 190, 18, { width: 355 })
+      .fontSize(12).font('Helvetica')
+      .text('Gestão de Obras — Relatório Mensal', 190, 42, { width: 355 })
+      .fontSize(10)
+      .text(`Período: ${mes}/${relatorio.periodo.ano}   |   Obra: ${relatorio.obra}`, 190, 62, { width: 355 });
+
+    doc.fillColor('black').y = 110;
+
+    // ── Informações gerais ───────────────────────────────────────────────────
+    doc.fontSize(10).font('Helvetica').fillColor('#374151')
+      .text(`Colaboradores no período: ${relatorio.mobilizacao.colaboradores}`, marginL, 105);
+
+    doc.moveDown(0.8);
+
+    // ── Função para linha da tabela ──────────────────────────────────────────
+    const addRow = (label, value, opts = {}) => {
+      const y = doc.y;
+      const bgColor = opts.bg || null;
+      const isTotal = opts.total || false;
+
+      if (bgColor) {
+        doc.rect(marginL, y - 2, pageW - marginL - marginR, 18).fill(bgColor);
+      }
+
+      doc.font(isTotal ? 'Helvetica-Bold' : 'Helvetica')
+        .fontSize(isTotal ? 11 : 10)
+        .fillColor(isTotal ? '#1d4ed8' : '#111827')
+        .text(label, marginL + 4, y, { width: colValX - marginL - 8, lineBreak: false });
+
+      doc.font(isTotal ? 'Helvetica-Bold' : 'Helvetica')
+        .fontSize(isTotal ? 11 : 10)
+        .fillColor(isTotal ? '#1d4ed8' : '#111827')
+        .text(fmt(value), colValX, y, { width: 130, align: 'right', lineBreak: false });
+
+      doc.y = y + (isTotal ? 22 : 18);
+      doc.x = marginL;
     };
 
-    addSection('Mobilização e Passagens', [
-      { label: 'Mobilização', value: relatorio.mobilizacao.total },
-      { label: 'Passagens', value: relatorio.passagens.total },
-    ]);
+    // ── Função para cabeçalho de seção ───────────────────────────────────────
+    const addSection = (title) => {
+      doc.moveDown(0.4);
+      const y = doc.y;
+      doc.rect(marginL, y, pageW - marginL - marginR, 20).fill('#dbeafe');
+      doc.font('Helvetica-Bold').fontSize(11).fillColor('#1e40af')
+        .text(title, marginL + 6, y + 4, { lineBreak: false });
+      doc.y = y + 24;
+      doc.x = marginL;
+    };
+
+    // ── Linha separadora ─────────────────────────────────────────────────────
+    const addDivider = () => {
+      doc.moveTo(marginL, doc.y).lineTo(pageW - marginR, doc.y).strokeColor('#e5e7eb').lineWidth(0.5).stroke();
+      doc.y += 3;
+    };
+
+    // ── Cabeçalho da tabela ──────────────────────────────────────────────────
+    const thY = doc.y;
+    doc.rect(marginL, thY, pageW - marginL - marginR, 18).fill('#1d4ed8');
+    doc.font('Helvetica-Bold').fontSize(10).fillColor('white')
+      .text('DESCRIÇÃO', marginL + 4, thY + 4, { lineBreak: false })
+      .text('VALOR', colValX, thY + 4, { width: 130, align: 'right', lineBreak: false });
+    doc.y = thY + 22;
+    doc.x = marginL;
+
+    // ── Seções de dados ──────────────────────────────────────────────────────
+    addSection('Mobilização e Passagens');
+    addRow('Mobilização', relatorio.mobilizacao.total, { bg: '#f9fafb' });
+    addDivider();
+    addRow('Passagens', relatorio.passagens.total);
 
     if (relatorio.custos.length > 0) {
-      addSection('Outros Custos', relatorio.custos.map(c => ({ label: c.label, value: c.total })));
+      addSection('Outros Custos');
+      relatorio.custos.forEach((c, i) => {
+        addRow(c.label, c.total, { bg: i % 2 === 0 ? '#f9fafb' : null });
+        if (i < relatorio.custos.length - 1) addDivider();
+      });
     }
 
     if (relatorio.alojamento.length > 0) {
-      addSection('Alojamento', relatorio.alojamento.map(a => ({ label: a.label, value: a.total })));
+      addSection('Alojamento');
+      relatorio.alojamento.forEach((a, i) => {
+        addRow(a.label, a.total, { bg: i % 2 === 0 ? '#f9fafb' : null });
+        if (i < relatorio.alojamento.length - 1) addDivider();
+      });
     }
 
-    // Total geral
-    doc.moveDown();
-    doc.rect(50, doc.y, 495, 35).fill('#dbeafe');
-    doc.fillColor('#1d4ed8').fontSize(14).font('Helvetica-Bold')
-      .text('TOTAL GERAL', 60, doc.y - 28)
-    doc.text(fmt(relatorio.total_geral), 400, doc.y - 14, { width: 135, align: 'right' });
+    // ── Total geral ──────────────────────────────────────────────────────────
+    doc.moveDown(0.6);
+    addRow('TOTAL GERAL', relatorio.total_geral, { total: true, bg: '#dbeafe' });
+
+    // ── Rodapé ───────────────────────────────────────────────────────────────
+    const pageH = doc.page.height;
+    doc.rect(0, pageH - 30, pageW, 30).fill('#1d4ed8');
+    doc.fillColor('white').fontSize(8).font('Helvetica')
+      .text(`Grupo CMP — Relatório gerado em ${new Date().toLocaleDateString('pt-BR')}`,
+        marginL, pageH - 20, { width: pageW - marginL - marginR, align: 'center' });
 
     doc.end();
   } catch (err) {
