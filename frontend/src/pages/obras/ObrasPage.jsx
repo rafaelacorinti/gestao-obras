@@ -19,14 +19,14 @@ function ObraDetalheModal({ obra, onClose, onEdit }) {
   })
 
   const receita = parseFloat(obra.orcamento || 0)
-  // Usa acumulado total (todos os anos) como base de despesas
-  const totalDespesas = parseFloat(rel?.acumulado?.total || 0)
-  // Despesas do ano selecionado para detalhamento
   const totalMob = parseFloat(rel?.mobilizacao?.total || 0)
   const totalPass = parseFloat(rel?.passagens?.total || 0)
   const totalCust = (rel?.custos || []).reduce((a, c) => a + parseFloat(c.total || 0), 0)
   const totalAloj = (rel?.alojamento || []).reduce((a, c) => a + parseFloat(c.total || 0), 0)
   const totalAno = totalMob + totalPass + totalCust + totalAloj
+  // Usa acumulado total se disponível, senão usa o do ano selecionado
+  const acumulado = parseFloat(rel?.acumulado?.total || 0)
+  const totalDespesas = acumulado > 0 ? acumulado : totalAno
   const saldo = receita - totalDespesas
   const percentGasto = receita > 0 ? Math.min((totalDespesas / receita) * 100, 999) : 0
 
@@ -67,12 +67,7 @@ function ObraDetalheModal({ obra, onClose, onEdit }) {
             {isLoading ? (
               <p className="text-xl font-bold text-red-700">...</p>
             ) : (
-              <>
-                <p className="text-xl font-bold text-red-700">{formatCurrency(totalDespesas)}</p>
-                {totalAno > 0 && totalAno !== totalDespesas && (
-                  <p className="text-xs text-red-400 mt-0.5">{ano}: {formatCurrency(totalAno)}</p>
-                )}
-              </>
+              <p className="text-xl font-bold text-red-700">{formatCurrency(totalDespesas)}</p>
             )}
           </div>
 
