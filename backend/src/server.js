@@ -54,7 +54,6 @@ app.use('/api/alojamento', require('./routes/alojamento'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/import', require('./routes/import'));
 app.use('/api/relatorios', require('./routes/relatorios'));
-app.use('/api/sync', require('./routes/sync'));
 
 app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date() }));
 
