@@ -86,18 +86,31 @@ router.get('/obra/:id', async (req, res) => {
     const obra = await db.query('SELECT * FROM obras WHERE id=$1', [req.params.id]);
     if (!obra.rows[0]) return res.status(404).json({ error: 'Obra não encontrada' });
 
-    const [mob, pass, cust, aloj, colabs] = await Promise.all([
+    const [mob, pass, cust, aloj, colabs, mobTotal, passTotal, custTotal, alojTotal] = await Promise.all([
+      // Filtrado por ano
       db.query(`SELECT COALESCE(SUM(valor_reembolso),0) as total, COUNT(*) as count FROM mobilizacao WHERE obra_id=$1 AND EXTRACT(YEAR FROM data_mobilizacao)=$2`, [req.params.id, y]),
       db.query(`SELECT COALESCE(SUM(valor),0) as total, COUNT(*) as count FROM passagens WHERE obra_id=$1 AND EXTRACT(YEAR FROM data_viagem)=$2 AND status!='cancelado'`, [req.params.id, y]),
       db.query(`SELECT categoria, COALESCE(SUM(valor),0) as total FROM custos WHERE obra_id=$1 AND ano_referencia=$2 GROUP BY categoria`, [req.params.id, y]),
       db.query(`SELECT tipo, COALESCE(SUM(valor),0) as total FROM alojamento WHERE obra_id=$1 AND ano_referencia=$2 GROUP BY tipo`, [req.params.id, y]),
-      db.query(`SELECT DISTINCT c.nome, c.funcao, c.status FROM colaboradores c JOIN mobilizacao m ON c.id=m.colaborador_id WHERE m.obra_id=$1 ORDER BY c.nome`, [req.params.id])
+      // Colaboradores (sem filtro de ano)
+      db.query(`SELECT DISTINCT c.nome, c.funcao, c.status FROM colaboradores c JOIN mobilizacao m ON c.id=m.colaborador_id WHERE m.obra_id=$1 ORDER BY c.nome`, [req.params.id]),
+      // Acumulado total (todos os anos)
+      db.query(`SELECT COALESCE(SUM(valor_reembolso),0) as total FROM mobilizacao WHERE obra_id=$1`, [req.params.id]),
+      db.query(`SELECT COALESCE(SUM(valor),0) as total FROM passagens WHERE obra_id=$1 AND status!='cancelado'`, [req.params.id]),
+      db.query(`SELECT COALESCE(SUM(valor),0) as total FROM custos WHERE obra_id=$1`, [req.params.id]),
+      db.query(`SELECT COALESCE(SUM(valor),0) as total FROM alojamento WHERE obra_id=$1`, [req.params.id]),
     ]);
 
     const totalMob = parseFloat(mob.rows[0].total);
     const totalPass = parseFloat(pass.rows[0].total);
     const totalCust = cust.rows.reduce((a, r) => a + parseFloat(r.total), 0);
     const totalAloj = aloj.rows.reduce((a, r) => a + parseFloat(r.total), 0);
+
+    const acumMob  = parseFloat(mobTotal.rows[0].total);
+    const acumPass = parseFloat(passTotal.rows[0].total);
+    const acumCust = parseFloat(custTotal.rows[0].total);
+    const acumAloj = parseFloat(alojTotal.rows[0].total);
+    const acumTotal = acumMob + acumPass + acumCust + acumAloj;
 
     res.json({
       obra: obra.rows[0],
@@ -107,7 +120,8 @@ router.get('/obra/:id', async (req, res) => {
       custos: cust.rows.map(r => ({ categoria: r.categoria, label: CATEGORIAS[r.categoria] || r.categoria, total: parseFloat(r.total) })),
       alojamento: aloj.rows.map(r => ({ tipo: r.tipo, label: ALOJAMENTO[r.tipo] || r.tipo, total: parseFloat(r.total) })),
       colaboradores: colabs.rows,
-      total_geral: totalMob + totalPass + totalCust + totalAloj
+      total_geral: totalMob + totalPass + totalCust + totalAloj,
+      acumulado: { mobilizacao: acumMob, passagens: acumPass, custos: acumCust, alojamento: acumAloj, total: acumTotal }
     });
   } catch (error) {
     res.status(500).json({ error: 'Erro ao gerar relatório por obra' });

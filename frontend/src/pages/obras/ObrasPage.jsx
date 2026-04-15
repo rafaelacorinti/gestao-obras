@@ -19,11 +19,14 @@ function ObraDetalheModal({ obra, onClose, onEdit }) {
   })
 
   const receita = parseFloat(obra.orcamento || 0)
+  // Usa acumulado total (todos os anos) como base de despesas
+  const totalDespesas = parseFloat(rel?.acumulado?.total || 0)
+  // Despesas do ano selecionado para detalhamento
   const totalMob = parseFloat(rel?.mobilizacao?.total || 0)
   const totalPass = parseFloat(rel?.passagens?.total || 0)
   const totalCust = (rel?.custos || []).reduce((a, c) => a + parseFloat(c.total || 0), 0)
   const totalAloj = (rel?.alojamento || []).reduce((a, c) => a + parseFloat(c.total || 0), 0)
-  const totalDespesas = totalMob + totalPass + totalCust + totalAloj
+  const totalAno = totalMob + totalPass + totalCust + totalAloj
   const saldo = receita - totalDespesas
   const percentGasto = receita > 0 ? Math.min((totalDespesas / receita) * 100, 999) : 0
 
@@ -59,12 +62,17 @@ function ObraDetalheModal({ obra, onClose, onEdit }) {
           <div className="bg-red-50 border border-red-100 rounded-xl p-4">
             <div className="flex items-center gap-2 mb-1">
               <TrendingDown size={15} className="text-red-600" />
-              <p className="text-xs font-semibold text-red-600 uppercase tracking-wide">Despesas ({ano})</p>
+              <p className="text-xs font-semibold text-red-600 uppercase tracking-wide">Despesas Acumuladas</p>
             </div>
             {isLoading ? (
               <p className="text-xl font-bold text-red-700">...</p>
             ) : (
-              <p className="text-xl font-bold text-red-700">{formatCurrency(totalDespesas)}</p>
+              <>
+                <p className="text-xl font-bold text-red-700">{formatCurrency(totalDespesas)}</p>
+                {totalAno > 0 && totalAno !== totalDespesas && (
+                  <p className="text-xs text-red-400 mt-0.5">{ano}: {formatCurrency(totalAno)}</p>
+                )}
+              </>
             )}
           </div>
 
