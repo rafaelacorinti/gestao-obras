@@ -23,7 +23,7 @@ router.get('/', async (req, res) => {
       if (req.user.obras_ids.length === 0) return res.json({ data: [], total: 0 });
       query += ` AND m.obra_id = ANY($${idx++})`; params.push(req.user.obras_ids);
     }
-    query += ' ORDER BY m.data_mobilizacao DESC';
+    query += ' ORDER BY c.nome ASC';
     const result = await db.query(query, params);
     const total = result.rows.reduce((acc, r) => acc + parseFloat(r.valor_reembolso || 0), 0);
     res.json({ data: result.rows, total });
