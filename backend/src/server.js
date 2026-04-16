@@ -71,10 +71,11 @@ app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
 
   // Keep-alive: evita que o Render durma (ping a cada 14 minutos)
-  if (process.env.NODE_ENV === 'production' && process.env.RENDER_EXTERNAL_URL) {
+  if (process.env.NODE_ENV === 'production') {
     const https = require('https');
+    const pingUrl = process.env.RENDER_EXTERNAL_URL || 'https://gestao-obras-mik3.onrender.com';
     setInterval(() => {
-      https.get(`${process.env.RENDER_EXTERNAL_URL}/health`, (r) => {
+      https.get(`${pingUrl}/health`, (r) => {
         console.log(`Keep-alive ping: ${r.statusCode}`);
       }).on('error', () => {});
     }, 14 * 60 * 1000);
