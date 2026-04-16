@@ -138,7 +138,7 @@ export default function MobilizacaoPage() {
           <div><label className="label">Status</label>
             <select className="input" {...F('status')}><option value="pendente">Pendente</option><option value="aprovado">Aprovado</option><option value="pago">Pago</option><option value="cancelado">Cancelado</option></select>
           </div>
-          <div><label className="label">Data Mobilização *</label><input type="date" className="input" required {...F('data_mobilizacao')} /></div>
+          <div><label className="label">Data Mobilização</label><input type="date" className="input" {...F('data_mobilizacao')} /></div>
           <div><label className="label">Data Desmobilização</label><input type="date" className="input" {...F('data_desmobilizacao')} /></div>
           <div><label className="label">Cidade Origem</label><input className="input" {...F('cidade_origem')} /></div>
           <div><label className="label">Estado Origem</label><input className="input" maxLength={2} {...F('estado_origem')} /></div>
