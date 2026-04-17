@@ -10,6 +10,7 @@ const INITIAL = { nome: '', email: '', senha: '', perfil: 'financeiro', ativo: t
 
 const PERFIL_BADGE = {
   administrador: 'bg-red-100 text-red-700',
+  diretor: 'bg-purple-100 text-purple-700',
   financeiro: 'bg-blue-100 text-blue-700',
   engenheiro: 'bg-green-100 text-green-700',
 }
@@ -225,6 +226,7 @@ export default function UsuariosPage() {
           <div><label className="label">Perfil</label>
             <select className="input" value={form.perfil} onChange={e => setForm(f => ({ ...f, perfil: e.target.value }))}>
               <option value="administrador">Administrador</option>
+              <option value="diretor">Diretor</option>
               <option value="financeiro">Financeiro</option>
               <option value="engenheiro">Engenheiro</option>
             </select>

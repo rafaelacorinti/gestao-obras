@@ -62,6 +62,7 @@ export default function RegisterPage() {
             <div>
               <label className="label">Perfil desejado *</label>
               <select className="input" value={form.perfil} onChange={e => setForm(f => ({ ...f, perfil: e.target.value }))}>
+                <option value="diretor">Diretor</option>
                 <option value="financeiro">Financeiro</option>
                 <option value="engenheiro">Engenheiro</option>
               </select>
