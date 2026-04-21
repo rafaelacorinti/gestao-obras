@@ -14,12 +14,6 @@ router.get('/', async (req, res) => {
     if (status) { query += ` AND status = $${idx++}`; params.push(status); }
     if (funcao) { query += ` AND funcao ILIKE $${idx++}`; params.push(`%${funcao}%`); }
     if (search) { query += ` AND (nome ILIKE $${idx} OR apelido ILIKE $${idx} OR cpf ILIKE $${idx})`; params.push(`%${search}%`); idx++; }
-    // Filtrar por obras permitidas do usuário
-    if (req.user.obras_ids !== null) {
-      if (req.user.obras_ids.length === 0) return res.json([]);
-      query += ` AND id IN (SELECT DISTINCT colaborador_id FROM mobilizacao WHERE obra_id = ANY($${idx++}))`;
-      params.push(req.user.obras_ids);
-    }
     query += ' ORDER BY nome';
     const result = await db.query(query, params);
     res.json(result.rows);
